@@ -8,6 +8,8 @@ from langgraph.graph.message import add_messages
 from prompt_library.prompts import PROMPT_REGISTRY, PromptType
 from retriever.retrieval import Retriever
 from utils.model_loader import ModelLoader
+from langgraph.checkpoint.memory import MemorySaver
+from evaluation.ragas_eval import evaluate_context_precision, evaluate_response_relevancy
 
 
 class AgenticRAG:
@@ -20,8 +22,9 @@ class AgenticRAG:
         self.retriever_obj = Retriever()
         self.model_loader = ModelLoader()
         self.llm = self.model_loader.load_llm()
+        self.checkpointer = MemorySaver()
         self.workflow = self._build_workflow()
-        self.app = self.workflow.compile()
+        self.app = self.workflow.compile(checkpointer=self.checkpointer)
 
     # ---------- Helpers ----------
     def _format_docs(self, docs) -> str:
@@ -120,13 +123,37 @@ class AgenticRAG:
         return workflow
 
     # ---------- Public Run ----------
-    def run(self, query: str) -> str:
+    def run(self, query: str,thread_id: str = "default_thread") -> str:
         """Run the workflow for a given query and return the final answer."""
-        result = self.app.invoke({"messages": [HumanMessage(content=query)]})
+        result = self.app.invoke({"messages": [HumanMessage(content=query)]},
+                                 config={"configurable": {"thread_id": thread_id}})
         return result["messages"][-1].content
+    
+        # function call with be asscoiate
+        # you will get some score
+        # put condition behalf on that score
+        # if relevany>0.75
+            #return
+        #else:
+            #contine
 
 
 if __name__ == "__main__":
+    
+    
     rag_agent = AgenticRAG()
     answer = rag_agent.run("What is the price of iPhone 15?")
     print("\nFinal Answer:\n", answer)
+    
+    
+    # retrieved_contexts,response = invoke_chain(user_query)
+    
+    # #this is not an actual output this have been written to test the pipeline
+    # #response="iphone 16 plus, iphone 16, iphone 15 are best phones under 1,00,000 INR."
+    
+    # context_score = evaluate_context_precision(user_query,response,retrieved_contexts)
+    # relevancy_score = evaluate_response_relevancy(user_query,response,retrieved_contexts)
+    
+    # print("\n--- Evaluation Metrics ---")
+    # print("Context Precision Score:", context_score)
+    # print("Response Relevancy Score:", relevancy_score)
